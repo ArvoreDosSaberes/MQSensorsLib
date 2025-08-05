@@ -1,7 +1,6 @@
 #ifndef MQUnifiedsensor_H
-  #define MQUnifiedsensor_H
+#define MQUnifiedsensor_H
 
-#include <Arduino.h>
 #include <stdint.h>
 #include <float.h>
 #include <math.h>
@@ -15,8 +14,7 @@
 class MQUnifiedsensor
 {
   public:
-    MQUnifiedsensor(String Placa = "Arduino", float Voltage_Resolution =  5, int ADC_Bit_Resolution = 10, int pin = 1, String type = "CUSTOM MQ");
-    MQUnifiedsensor(String Placa = "Arduino", String type = "CUSTOM MQ");
+    MQUnifiedsensor(float Voltage_Resolution =  5, int ADC_Bit_Resolution = 10, int pin = 1, const char* type = "CUSTOM MQ");
     
     //Functions to set values
     void init();
@@ -32,7 +30,9 @@ class MQUnifiedsensor
     void setPin(int pin = 1);
     void serialDebug(bool onSetup = false); //Show on serial port information about sensor
     void setADC(int value); //For external ADC Usage
-    
+    void setType(const char* type);
+    void setBoard(const char* placa);
+
     //user functions
     float calibrate(float ratioInCleanAir, float correctionFactor = 0.0);
     float readSensor(bool isMQ303A = false, float correctionFactor = 0.0, bool injected=false);
@@ -46,9 +46,9 @@ class MQUnifiedsensor
     float getRL();
     float getVoltResolution();
     float getVCC();
-    String getRegressionMethod();
+    const char* getRegressionMethod();
     float getVoltage(bool read = true, bool injected = false, int value = 0);
-    float stringTofloat(String & str);
+    float stringTofloat(const char* str);
 
     // functions for testing
     float getRS();    
@@ -56,18 +56,18 @@ class MQUnifiedsensor
 
   private:
     /************************Private vars************************************/
-    byte _pin = 1;
-    byte _firstFlag = false;
+    uint8_t _pin = 1;
+    bool _firstFlag = false;
     float _VOLT_RESOLUTION  = 5.0; // if 3.3v use 3.3
     float _VCC = 5.0; // Sensor supply voltage
     float _RL = 10; //Value in KiloOhms
-    byte _ADC_Bit_Resolution = 10;
-    byte _regressionMethod = 1; // 1 -> Exponential || 2 -> Linear
+    uint8_t _ADC_Bit_Resolution = 10;
+    uint8_t _regressionMethod = 1; // 1 -> Exponential || 2 -> Linear
     
     float _adc, _a, _b, _sensor_volt;
     float  _R0, RS_air, _ratio, _PPM, _RS_Calc;  
     
-    char _type[7];
+    char _type[16];
     char _placa[20]; 
 };
 

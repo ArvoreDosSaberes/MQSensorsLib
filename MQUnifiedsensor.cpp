@@ -1,27 +1,21 @@
 #include "MQUnifiedsensor.h"
+#include "espidf_adc_helper.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <float.h>
 #include <math.h>
 
 #define retries 2
 #define retry_interval 20
 
-MQUnifiedsensor::MQUnifiedsensor(String Placa, float Voltage_Resolution, int ADC_Bit_Resolution, int pin, String type) {
+MQUnifiedsensor::MQUnifiedsensor(float Voltage_Resolution, int ADC_Bit_Resolution, int pin, const char* type) {
   this->_pin = pin;
-  Placa.toCharArray(this->_placa, 20);
-  type.toCharArray(this->_type, 7);
-  //this->_type = type; //MQ-2, MQ-3 ... MQ-309A
-  //this->_placa = Placa;
-  this-> _VOLT_RESOLUTION = Voltage_Resolution;
-  this-> _VCC = Voltage_Resolution;
-  this-> _ADC_Bit_Resolution = ADC_Bit_Resolution;
-}
-MQUnifiedsensor::MQUnifiedsensor(String Placa, String type) {
-  Placa.toCharArray(this->_placa, 20);
-  type.toCharArray(this->_type, 7);
-}
-void MQUnifiedsensor::init()
-{
-  pinMode(_pin, INPUT);
+  strncpy(this->_type, type, sizeof(this->_type)-1);
+  this->_type[sizeof(this->_type)-1] = '\0';
+  this->_VOLT_RESOLUTION = Voltage_Resolution;
+  this->_VCC = Voltage_Resolution;
+  this->_ADC_Bit_Resolution = ADC_Bit_Resolution;
 }
 static inline double safePow(double base, double exp){
   if(exp == 0.0) return 1.0;
@@ -98,10 +92,9 @@ float MQUnifiedsensor::getVCC()
 {
   return _VCC;
 }
-String MQUnifiedsensor::getRegressionMethod()
+const char* MQUnifiedsensor::getRegressionMethod()
 {
-  if(_regressionMethod == 1) return "Exponential";
-  else return "Linear";
+  return (_regressionMethod == 1) ? "Exponential" : "Linear";
 }
 float MQUnifiedsensor::getA() {
   return _a;
@@ -113,44 +106,36 @@ void MQUnifiedsensor::serialDebug(bool onSetup)
 {
   if(onSetup)
   {
-    Serial.println();
-    Serial.println("************************************************************************************************************************************************");
-    Serial.println("MQ sensor reading library for arduino");
-
-    Serial.println("Note: remember that all the parameters below can be modified during the program execution with the methods:");
-    Serial.println("setR0, setRL, setA, setB where you will have to send as parameter the new value, example: mySensor.setR0(20); //R0 = 20KΩ");
-
-    Serial.println("Authors: Miguel A. Califa U - Yersson R. Carrillo A - Ghiordy F. Contreras C");
-    Serial.println("Contributors: Andres A. Martinez - Juan A. Rodríguez - Mario A. Rodríguez O ");
-
-    Serial.print("Sensor: "); Serial.println(_type);
-    Serial.print("ADC voltage: "); Serial.print(_VOLT_RESOLUTION); Serial.println(" VDC");
-    Serial.print("Sensor supply (VCC): "); Serial.print(_VCC); Serial.println(" VDC");
-    Serial.print("ADC Resolution: "); Serial.print(_ADC_Bit_Resolution); Serial.println(" Bits");
-    Serial.print("R0: "); Serial.print(_R0); Serial.println(" KΩ");
-    Serial.print("RL: "); Serial.print(_RL); Serial.println(" KΩ");
-
-    Serial.print("Model: "); if(_regressionMethod == 1) Serial.println("Exponential"); else Serial.println("Linear");
-    Serial.print(_type); Serial.print(" -> a: "); Serial.print(_a); Serial.print(" | b: "); Serial.println(_b);
-
-    Serial.print("Development board: "); Serial.println(_placa);
+    ESP_LOGI("MQUnifiedsensor", "************************************************************************************************************************************************");
+    ESP_LOGI("MQUnifiedsensor", "MQ sensor reading library for arduino");
+    ESP_LOGI("MQUnifiedsensor", "Note: remember that all the parameters below can be modified during the program execution with the methods:");
+    ESP_LOGI("MQUnifiedsensor", "setR0, setRL, setA, setB where you will have to send as parameter the new value, example: mySensor.setR0(20); //R0 = 20KΩ");
+    ESP_LOGI("MQUnifiedsensor", "Authors: Miguel A. Califa U - Yersson R. Carrillo A - Ghiordy F. Contreras C");
+    ESP_LOGI("MQUnifiedsensor", "Contributors: Andres A. Martinez - Juan A. Rodríguez - Mario A. Rodríguez O ");
+    ESP_LOGI("MQUnifiedsensor", "Sensor: %s", _type);
+    ESP_LOGI("MQUnifiedsensor", "ADC voltage: %.2f VDC", _VOLT_RESOLUTION);
+    ESP_LOGI("MQUnifiedsensor", "Sensor supply (VCC): %.2f VDC", _VCC);
+    ESP_LOGI("MQUnifiedsensor", "ADC Resolution: %d Bits", _ADC_Bit_Resolution);
+    ESP_LOGI("MQUnifiedsensor", "R0: %.2f KΩ", _R0);
+    ESP_LOGI("MQUnifiedsensor", "RL: %.2f KΩ", _RL);
+    ESP_LOGI("MQUnifiedsensor", "Model: %s", _regressionMethod == 1 ? "Exponential" : "Linear");
+    ESP_LOGI("MQUnifiedsensor", "%s -> a: %.2f | b: %.2f", _type, _a, _b);
+    ESP_LOGI("MQUnifiedsensor", "Development board: %s", _placa);
   }
   else 
   {
     if(!_firstFlag)
     {
-      Serial.print("| ********************************************************************"); Serial.print(_type); Serial.println("*********************************************************************|");
-      Serial.println("|ADC_In | Equation_V_ADC | Voltage_ADC |        Equation_RS        | Resistance_RS  |    EQ_Ratio  | Ratio (RS/R0) | Equation_PPM |     PPM    |");
+      ESP_LOGI("MQUnifiedsensor", "| ******************************************************************** %s *********************************************************************|", _type);
+      ESP_LOGI("MQUnifiedsensor", "|ADC_In | Equation_V_ADC | Voltage_ADC |        Equation_RS        | Resistance_RS  |    EQ_Ratio  | Ratio (RS/R0) | Equation_PPM |     PPM    |");
       _firstFlag = true;  //Headers are printed
     }
     else
     {
-      Serial.print("|"); Serial.print(_adc);  Serial.print("| v = ADC*"); Serial.print(_VOLT_RESOLUTION); Serial.print("/"); Serial.print((pow(2, _ADC_Bit_Resolution)) - 1); Serial.print("  |    "); Serial.print(_sensor_volt);
-      Serial.print("     | RS = ((" ); Serial.print(_VCC ); Serial.print("*RL)/Voltage) - RL|      "); Serial.print(_RS_Calc); Serial.print("     | Ratio = RS/R0|    ");
-      Serial.print(_ratio);  Serial.print( "       |   ");
-      if(_regressionMethod == 1) Serial.print("ratio*a + b");
-      else Serial.print("pow(10, (log10(ratio)-b)/a)");
-      Serial.print("  |   "); Serial.print(_PPM); Serial.println("  |");
+      ESP_LOGI("MQUnifiedsensor", "| %d | v = ADC*%.2f/%d  | %.2f | RS = ((%.2f*%.2f)/%.2f) - %.2f | %.2f | %.2f | %.2f | %s | %.2f |",
+        _adc, _VOLT_RESOLUTION, (pow(2, _ADC_Bit_Resolution)) - 1, _sensor_volt,
+        _VCC, _RL, _sensor_volt, _RL, _RS_Calc, _ratio,
+        _regressionMethod == 1 ? "ratio*a + b" : "pow(10, (log10(ratio)-b)/a)", _PPM);
     }
   }
 }
@@ -271,9 +256,9 @@ float MQUnifiedsensor::getVoltage(bool read, bool injected, int value) {
   {
     float avg = 0.0;
     for (int i = 0; i < retries; i ++) {
-      _adc = analogRead(this->_pin);
+      _adc = espidf_analogRead(this->_pin, _ADC_Bit_Resolution);
       avg += _adc;
-      delay(retry_interval);
+      vTaskDelay(retry_interval / portTICK_PERIOD_MS);
     }
     voltage = (avg/ retries) * _VOLT_RESOLUTION / ((pow(2, _ADC_Bit_Resolution)) - 1);
   }
@@ -301,7 +286,7 @@ float MQUnifiedsensor::getRS()
   return _RS_Calc;
 }
 
-float MQUnifiedsensor::stringTofloat(String & str)
+float MQUnifiedsensor::stringTofloat(const char* str)
 {
-  return atof( str.c_str() );
+  return str ? atof(str) : 0.0f;
 }
