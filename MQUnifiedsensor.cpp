@@ -1,22 +1,28 @@
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "MQUnifiedsensor.h"
 #include "espidf_adc_helper.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include <float.h>
 #include <math.h>
 
 #define retries 2
 #define retry_interval 20
 
-MQUnifiedsensor::MQUnifiedsensor(float Voltage_Resolution, int ADC_Bit_Resolution, int pin, const char* type) {
+MQUnifiedsensor::MQUnifiedsensor(float Voltage_Resolution, int ADC_Bit_Resolution, int pin, const char* type, IAnalogReader* analogReader) {
   this->_pin = pin;
   strncpy(this->_type, type, sizeof(this->_type)-1);
   this->_type[sizeof(this->_type)-1] = '\0';
   this->_VOLT_RESOLUTION = Voltage_Resolution;
   this->_VCC = Voltage_Resolution;
   this->_ADC_Bit_Resolution = ADC_Bit_Resolution;
+  this->_analogReader = analogReader;
 }
+
+void MQUnifiedsensor::setAnalogReader(IAnalogReader* analogReader) {
+  this->_analogReader = analogReader;
+}
+
 static inline double safePow(double base, double exp){
   if(exp == 0.0) return 1.0;
   if(exp == 1.0) return base;
@@ -141,7 +147,15 @@ void MQUnifiedsensor::serialDebug(bool onSetup)
 }
 void MQUnifiedsensor::update()
 {
-  _sensor_volt = this->getVoltage();
+  if (this->_analogReader) {
+    uint16_t raw = 0;
+    if (this->_analogReader->read(raw)) {
+      this->_adc = raw;
+      _sensor_volt = (raw) * _VOLT_RESOLUTION / ((pow(2, _ADC_Bit_Resolution)) - 1);
+    }
+  } else {
+    _sensor_volt = this->getVoltage();
+  }
 }
 void MQUnifiedsensor::externalADCUpdate(float volt)
 {

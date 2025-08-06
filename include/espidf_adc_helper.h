@@ -25,7 +25,7 @@ static inline int espidf_analogRead(int pin, int bit_width)
         default: return -1; // unsupported pin
     }
     adc1_config_width(bit_width == 12 ? ADC_WIDTH_BIT_12 : (bit_width == 11 ? ADC_WIDTH_BIT_11 : (bit_width == 10 ? ADC_WIDTH_BIT_10 : ADC_WIDTH_BIT_9)));
-    adc1_config_channel_atten(channel, ADC_ATTEN_DB_11); // 0-3.6V
+    adc1_config_channel_atten(channel, ADC_ATTEN_DB_12); // 0-3.6V
     return adc1_get_raw(channel);
 }
 

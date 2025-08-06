@@ -11,10 +11,12 @@
 
 /***********************Software Related Macros************************************/
 
+#include "IAnalogReader.h"
 class MQUnifiedsensor
 {
   public:
-    MQUnifiedsensor(float Voltage_Resolution =  5, int ADC_Bit_Resolution = 10, int pin = 1, const char* type = "CUSTOM MQ");
+    MQUnifiedsensor(float Voltage_Resolution =  5, int ADC_Bit_Resolution = 10, int pin = 1, const char* type = "CUSTOM MQ", IAnalogReader* analogReader = nullptr);
+    void setAnalogReader(IAnalogReader* analogReader);
     
     //Functions to set values
     void init();
@@ -69,6 +71,7 @@ class MQUnifiedsensor
     
     char _type[16];
     char _placa[20]; 
+    IAnalogReader* _analogReader = nullptr;
 };
 
 #endif //MQUnifiedsensor_H
