@@ -149,7 +149,11 @@ void MQUnifiedsensor::update()
 {
   if (this->_analogReader) {
     uint16_t raw = 0;
+#ifdef ANALOG_READ_BUFFER_RING_MEANS
+    if (this->_analogReader->readMeans(raw)) {
+#else
     if (this->_analogReader->read(raw)) {
+#endif
       this->_adc = raw;
       _sensor_volt = (raw) * _VOLT_RESOLUTION / ((pow(2, _ADC_Bit_Resolution)) - 1);
     }
@@ -270,7 +274,18 @@ float MQUnifiedsensor::getVoltage(bool read, bool injected, int value) {
   {
     float avg = 0.0;
     for (int i = 0; i < retries; i ++) {
-      _adc = espidf_analogRead(this->_pin, _ADC_Bit_Resolution);
+      if(this->_analogReader)
+      {
+#ifdef ANALOG_READ_BUFFER_RING_MEANS
+        this->_analogReader->readMeans(_adc);
+#else
+        this->_analogReader->read(_adc);
+#endif
+      }
+      else
+      {
+        _adc = espidf_analogRead(this->_pin, _ADC_Bit_Resolution);
+      }
       avg += _adc;
       vTaskDelay(retry_interval / portTICK_PERIOD_MS);
     }
